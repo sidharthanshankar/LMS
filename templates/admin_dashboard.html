@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark">
+                <i class="fas fa-university me-2 text-primary"></i>Librarian Panel
+            </h2>
+            <p class="text-muted small">Managing Assets, Members, and Circulation</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-success shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#issueBookModal">
+                <i class="fas fa-hand-holding me-2"></i>Issue Book
+            </button>
+            <button class="btn btn-primary shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#addBookModal">
+                <i class="fas fa-plus me-2"></i>Add Book
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5 text-center">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm p-3 bg-white h-100 border-top border-primary border-4">
+                <h6 class="text-muted small fw-bold text-uppercase">Total Inventory</h6>
+                <h3 class="fw-bold mb-0 text-primary">{{ stats.total_books }}</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm p-3 bg-white h-100 border-top border-success border-4">
+                <h6 class="text-muted small fw-bold text-uppercase">Registered Students</h6>
+                <h3 class="fw-bold mb-0 text-success">{{ stats.total_students }}</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm p-3 bg-white h-100 border-top border-info border-4">
+                <h6 class="text-muted small fw-bold text-uppercase">Staff Members</h6>
+                <h3 class="fw-bold mb-0 text-info">{{ stats.total_staff }}</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm p-3 bg-white h-100 border-top border-danger border-4">
+                <h6 class="text-muted small fw-bold text-uppercase">Expected Fines</h6>
+                <h3 class="fw-bold mb-0 text-danger">₹ {{ stats.total_fines }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+        <div class="card-header bg-white border-0 pt-4 px-4">
+            <ul class="nav nav-pills card-header-pills" id="pills-tab" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active px-4 fw-bold" id="pills-users-tab" data-bs-toggle="pill" data-bs-target="#pills-users" type="button">
+                        <i class="fas fa-users-cog me-2"></i>Member Registry
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link px-4 fw-bold" id="pills-issues-tab" data-bs-toggle="pill" data-bs-target="#pills-issues" type="button">
+                        <i class="fas fa-history me-2"></i>Active Issues
+                    </button>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="card-body p-0">
+            <div class="tab-content" id="pills-tabContent">
+                
+                <div class="tab-pane fade show active p-4" id="pills-users">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Acc No</th>
+                                    <th>Full Name</th>
+                                    <th>Role</th>
+                                    <th>Email</th>
+                                    <th class="text-end">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td><span class="badge bg-light text-primary border">{{ user.account_no }}</span></td>
+                                    <td class="fw-bold">{{ user.name }}</td>
+                                    <td>
+                                        <span class="badge {% if user.role == 'librarian' %}bg-dark{% elif user.role == 'staff' %}bg-info text-dark{% else %}bg-warning text-dark{% endif %}">
+                                            {{ user.role | upper }}
+                                        </span>
+                                    </td>
+                                    <td class="text-muted">{{ user.email }}</td>
+                                    <td class="text-end"><span class="text-success small"><i class="fas fa-check-circle me-1"></i> Active</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade p-4" id="pills-issues">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="fw-bold mb-0 text-dark">
+                            <i class="fas fa-exchange-alt me-2 text-success"></i>Live Circulation Tracking
+                        </h5>
+                        <span class="badge bg-light text-muted border px-3 py-2">Policy: ₹5.00 / day</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">Borrower</th>
+                                    <th>Book Details</th>
+                                    <th>Timeline</th>
+                                    <th>Accrued Fine</th>
+                                    <th class="text-end pe-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for txn in transactions if not txn.return_date %}
+                                <tr>
+                                    <td class="ps-3">
+                                        <div class="fw-bold text-dark">{{ txn.borrower.name }}</div>
+                                        <div class="text-muted small">{{ txn.borrower.account_no }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="text-truncate" style="max-width: 200px;">{{ txn.book.title }}</div>
+                                        <div class="text-muted extra-small">ISBN: {{ txn.book.isbn }}</div>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted d-block">Due Date:</small>
+                                        <span class="{% if txn.due_date < now %}text-danger fw-bold{% else %}text-dark{% endif %}">
+                                            {{ txn.due_date.strftime('%d-%b-%Y') }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% set days_over = (now - txn.due_date).days %}
+                                        {% if days_over > 0 %}
+                                            <div class="text-danger fw-bold">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>₹ {{ days_over * 5 }}
+                                            </div>
+                                            <small class="text-muted">{{ days_over }} days late</small>
+                                        {% else %}
+                                            <span class="text-success fw-semibold">₹ 0</span>
+                                            <small class="text-muted d-block">On track</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <div class="btn-group shadow-sm">
+                                            <form action="{{ url_for('return_book', transaction_id=txn.id) }}" method="POST" style="display:inline;">
+                                                <button type="submit" class="btn btn-sm btn-primary px-3" title="Mark as Returned">
+                                                    <i class="fas fa-check me-1"></i>Return
+                                                </button>
+                                            </form>
+                                            <a href="{{ url_for('send_reminder', transaction_id=txn.id) }}" 
+                                               class="btn btn-sm btn-warning px-3" 
+                                               title="Send Email Reminder">
+                                                <i class="fas fa-envelope"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-5">
+                                        <div class="text-muted">
+                                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                                            <p>No books are currently issued to members.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addBookModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Add New Library Asset</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('add_book') }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-3"><label class="form-label small fw-bold">Title</label><input type="text" name="title" class="form-control" required></div>
+                    <div class="mb-3"><label class="form-label small fw-bold">Author</label><input type="text" name="author" class="form-control" required></div>
+                    <div class="row">
+                        <div class="col-md-8 mb-3"><label class="form-label small fw-bold">ISBN</label><input type="text" name="isbn" class="form-control" required></div>
+                        <div class="col-md-4 mb-3"><label class="form-label small fw-bold">Copies</label><input type="number" name="copies" class="form-control" value="1" min="1" required></div>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary w-100">Add to Inventory</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="issueBookModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Circulation: Issue Book</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('issue_book') }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-3"><label class="form-label small fw-bold">Member Account No</label><input type="text" name="account_no" class="form-control" placeholder="STU201" required></div>
+                    <div class="mb-3"><label class="form-label small fw-bold">Book ISBN</label><input type="text" name="isbn" class="form-control" placeholder="13-digit code" required></div>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-success w-100">Confirm Issue</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

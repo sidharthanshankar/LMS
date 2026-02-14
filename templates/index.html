@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row align-items-center p-5 bg-white shadow-sm rounded-4">
+        <div class="col-md-6">
+            <h1 class="display-4 fw-bold text-dark">Smart Library <span class="text-primary">Management</span></h1>
+            <p class="lead text-muted">A dedicated platform for Students, Staff, and Librarians to manage academic resources efficiently.</p>
+            <div class="mt-4">
+                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg px-4 me-2">Get Started</a>
+                <button class="btn btn-outline-secondary btn-lg px-4">Browse Books</button>
+            </div>
+        </div>
+        <div class="col-md-6 text-center">
+            <i class="fas fa-book-reader fa-10x text-primary opacity-25"></i>
+        </div>
+    </div>
+</div>
+{% endblock %}

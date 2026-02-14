@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 class="fw-bold text-dark">Welcome, {{ current_user.name }}!</h2>
+            <p class="text-muted">Member ID: <span class="badge bg-light text-primary border">{{ current_user.account_no }}</span></p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <div class="card bg-danger bg-opacity-10 border-0 p-3">
+                <h6 class="text-danger fw-bold mb-0">Total Outstanding Fine</h6>
+                <h3 class="text-danger fw-bold">₹ {{ total_fine }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-header bg-white border-0 pt-4 px-4">
+            <h5 class="fw-bold"><i class="fas fa-book-open me-2 text-primary"></i>My Borrowed Books</h5>
+        </div>
+        <div class="card-body p-4">
+            {% if books %}
+            <div class="row">
+                {% for txn in books %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 border-0 shadow-sm bg-light">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <h5 class="card-title fw-bold mb-0">{{ txn.book.title }}</h5>
+                                {% if now > txn.due_date %}
+                                    <span class="badge bg-danger">OVERDUE</span>
+                                {% else %}
+                                    <span class="badge bg-success">ON TIME</span>
+                                {% endif %}
+                            </div>
+                            <p class="text-muted small mb-3">By {{ txn.book.author }}</p>
+                            
+                            <div class="d-flex justify-content-between border-top pt-3">
+                                <div>
+                                    <small class="text-uppercase text-muted d-block">Due Date</small>
+                                    <span class="fw-bold {% if now > txn.due_date %}text-danger{% endif %}">
+                                        {{ txn.due_date.strftime('%d-%m-%Y') }}
+                                    </span>
+                                </div>
+                                <div class="text-end">
+                                    <small class="text-uppercase text-muted d-block">Current Fine</small>
+                                    <span class="fw-bold">
+                                        {% set days = (now - txn.due_date).days %}
+                                        ₹ {{ days * 5 if days > 0 else 0 }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-ghost fa-3x text-muted mb-3"></i>
+                <p class="text-muted">You don't have any borrowed books at the moment.</p>
+                <a href="/" class="btn btn-outline-primary btn-sm">Browse Library</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
