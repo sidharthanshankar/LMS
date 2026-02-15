@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card border-0 shadow-lg rounded-4">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-user-plus fa-3x text-primary mb-3"></i>
+                        <h3 class="fw-bold">Create Account</h3>
+                        <p class="text-muted small">Join the College Library Portal</p>
+                    </div>
+                    
+                    <form action="{{ url_for('register') }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">FULL NAME</label>
+                            <input type="text" name="name" class="form-control" placeholder="John Doe" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">COLLEGE EMAIL</label>
+                            <input type="email" name="email" class="form-control" placeholder="john@college.edu" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold">ACCOUNT NO</label>
+                                <input type="text" name="account_no" class="form-control" placeholder="STU101" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold">I AM A...</label>
+                                <select name="role" class="form-select" required>
+                                    <option value="student">Student</option>
+                                    <option value="staff">Staff</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold">PASSWORD</label>
+                            <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Sign Up</button>
+                    </form>
+                    
+                    <div class="text-center mt-4">
+                        <p class="small text-muted">Already have an account? <a href="{{ url_for('login') }}" class="text-primary fw-bold">Login</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

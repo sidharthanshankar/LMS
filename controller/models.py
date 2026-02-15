@@ -42,3 +42,17 @@ class Transaction(db.Model):
             overdue_days = (end_date - self.due_date).days
             return overdue_days * 5  # Updated to ₹5
         return 0
+    
+class BookRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    book_id = db.Column(db.Integer, db.ForeignKey('book.id'), nullable=False)
+    request_date = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='Pending') # Pending, Approved, Rejected
+
+    # Relationships
+    user = db.relationship('User', backref='requests')
+    book = db.relationship('Book', backref='requests')
+
+    def __repr__(self):
+        return f'<Request: User {self.user_id} -> Book {self.book_id} [{self.status}]>'

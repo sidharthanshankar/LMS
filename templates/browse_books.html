@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-6">
+            <h2 class="fw-bold"><i class="fas fa-book-open me-2 text-primary"></i>Explore Library</h2>
+        </div>
+        <div class="col-md-6">
+            <form action="{{ url_for('browse_books') }}" method="GET" class="d-flex shadow-sm">
+                <input type="text" name="search" class="form-control border-end-0 rounded-start" placeholder="Search by title or author...">
+                <button type="submit" class="btn btn-primary rounded-end">
+                    <i class="fas fa-search"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-4">
+    {% for book in books %}
+    <div class="col-md-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="fw-bold">{{ book.title }}</h5>
+                <p class="text-muted small">by {{ book.author }}</p>
+
+                <div class="mt-auto d-flex justify-content-between align-items-center">
+                    <span class="fw-bold text-primary">{{ book.copies }} Left</span>
+                    
+                    {% if book.copies > 0 %}
+                        <form action="{{ url_for('request_book', book_id=book.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-primary px-3 shadow-sm">
+                                <i class="fas fa-paper-plane me-1"></i> Request
+                            </button>
+                        </form>
+                    {% else %}
+                        <button class="btn btn-sm btn-secondary px-3" disabled>Out of Stock</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+</div>
+
+<style>
+    .hover-shadow:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; transition: 0.3s; }
+</style>
+{% endblock %}

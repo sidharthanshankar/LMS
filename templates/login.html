@@ -1,37 +1,65 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center mt-5">
-        <div class="col-md-4">
-            <div class="card shadow-lg border-0">
-                <div class="card-body p-5">
+<div class="container py-5">
+    <div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+        <div class="col-md-5 col-lg-4">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="bg-primary" style="height: 6px;"></div>
+                
+                <div class="card-body p-4 p-md-5">
                     <div class="text-center mb-4">
-                        <div class="bg-primary text-white rounded-circle d-inline-block p-3 mb-2">
-                            <i class="fas fa-lock fa-2x"></i>
-                        </div>
-                        <h3 class="fw-bold">Login</h3>
-                        <p class="text-muted small">Enter your Unique Account Number</p>
-                    </div>
-                    <form method="POST">
                         <div class="mb-3">
-                            <label class="form-label small fw-bold">ACCOUNT NUMBER</label>
+                            <span class="fa-stack fa-2x">
+                                <i class="fas fa-circle fa-stack-2x text-primary opacity-10"></i>
+                                <i class="fas fa-university fa-stack-1x text-primary"></i>
+                            </span>
+                        </div>
+                        <h3 class="fw-bold text-dark">LMS Login</h3>
+                        <p class="text-muted small">Enter your credentials to continue</p>
+                    </div>
+
+                    <form action="{{ url_for('login') }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">ACCOUNT NUMBER</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light border-end-0"><i class="fas fa-id-card text-muted"></i></span>
-                                <input type="text" name="account_no" class="form-control bg-light border-start-0" placeholder="e.g. STU201" required>
+                                <span class="input-group-text bg-light border-end-0 text-muted">
+                                    <i class="fas fa-id-card"></i>
+                                </span>
+                                <input type="text" name="account_no" class="form-control bg-light border-start-0" 
+                                       placeholder="e.g. STU101" required>
                             </div>
                         </div>
+
                         <div class="mb-4">
-                            <label class="form-label small fw-bold">PASSWORD</label>
+                            <label class="form-label small fw-bold text-secondary">PASSWORD</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light border-end-0"><i class="fas fa-key text-muted"></i></span>
-                                <input type="password" name="password" class="form-control bg-light border-start-0" required>
+                                <span class="input-group-text bg-light border-end-0 text-muted">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input type="password" name="password" class="form-control bg-light border-start-0" 
+                                       placeholder="••••••••" required>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">SIGN IN</button>
+
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold shadow-sm mb-3">
+                            Sign In <i class="fas fa-sign-in-alt ms-2"></i>
+                        </button>
                     </form>
+
+                    <hr class="text-muted opacity-25">
+
+                    <div class="text-center mt-4">
+                        <p class="small text-muted mb-0">New to the library?</p>
+                        <a href="{{ url_for('register') }}" class="text-primary fw-bold text-decoration-none">
+                            Create an Account <i class="fas fa-chevron-right ms-1 small"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
-            <p class="text-center mt-4 text-muted small">Forgot password? Contact Librarian.</p>
+            
+            <p class="text-center text-muted mt-4 extra-small">
+                <i class="fas fa-info-circle me-1"></i> Use your College issued ID for Account Number.
+            </p>
         </div>
     </div>
 </div>
