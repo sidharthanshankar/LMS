@@ -154,17 +154,16 @@
                                         <a href="{{ url_for('manage_request', req_id=req.id, action='reject') }}" class="btn btn-sm btn-danger">Reject</a>
                                     </td>
                                 </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">No pending book requests at the moment.</td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="addBookModal" tabindex="-1">
+            </div> </div> </div> </div> <div class="modal fade" id="addBookModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -211,5 +210,4 @@
         </div>
     </div>
 </div>
-
 {% endblock %}
