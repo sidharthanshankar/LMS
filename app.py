@@ -192,6 +192,7 @@ def manage_request(req_id, action):
             req.status = 'Approved'
             req.book.copies -= 1
             
+            # Record both Issue and Due dates to keep history accurate
             new_txn = Transaction(
                 user_id=req.user_id,
                 book_id=req.book_id,
@@ -199,13 +200,13 @@ def manage_request(req_id, action):
                 due_date=datetime.utcnow() + timedelta(days=14)
             )
             db.session.add(new_txn)
-            flash(f"Approved! {req.book.title} is now issued to {req.user.name}.", "success")
+            flash(f"Approved! {req.book.title} issued to {req.user.name}.", "success")
         else:
-            flash("Error: This book is currently out of stock!", "danger")
+            flash("Error: Out of stock!", "danger")
             
     elif action == 'reject':
         req.status = 'Rejected'
-        flash(f"Request for {req.book.title} has been rejected.", "info")
+        flash(f"Request for {req.book.title} rejected.", "info")
         
     db.session.commit()
     return redirect(url_for('admin_dashboard'))
@@ -293,18 +294,39 @@ def cancel_request(req_id):
 @login_required
 def add_book():
     if current_user.role != 'librarian':
+        flash("Unauthorized access!", "danger")
         return redirect(url_for('index'))
-    
+        
+    # 1. Fetch data from form (Matching your HTML 'name' attributes)
     title = request.form.get('title')
     author = request.form.get('author')
     isbn = request.form.get('isbn')
-    copies = request.form.get('copies')
+    copies_val = request.form.get('copies')
+    
+    # 2. Safety Check for empty fields
+    if not all([title, author, isbn, copies_val]):
+        flash("All fields are required!", "warning")
+        return redirect(url_for('admin_dashboard'))
 
-    new_book = Book(title=title, author=author, isbn=isbn, copies=copies)
-    db.session.add(new_book)
-    db.session.commit()
-    flash(f"Book '{title}' added successfully!", "success")
+    try:
+        copies = int(copies_val)
+        # Check if ISBN already exists to prevent a crash
+        existing_book = Book.query.filter_by(isbn=isbn).first()
+        if existing_book:
+            existing_book.copies += copies # Increase stock if book exists
+            flash(f"Updated stock for '{title}'. Total copies: {existing_book.copies}", "info")
+        else:
+            new_book = Book(title=title, author=author, isbn=isbn, copies=copies)
+            db.session.add(new_book)
+            flash(f"Book '{title}' added to inventory!", "success")
+            
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Database Error: {str(e)}", "danger")
+
     return redirect(url_for('admin_dashboard'))
+
 
 @app.route('/issue_book', methods=['POST'])
 @login_required
@@ -316,28 +338,36 @@ def issue_book():
     account_no = request.form.get('account_no')
     isbn = request.form.get('isbn')
     
+    # 1. Validate existence
     user = User.query.filter_by(account_no=account_no).first()
     book = Book.query.filter_by(isbn=isbn).first()
 
     if not user:
-        flash("Error: Member account number not found.", "danger")
+        flash(f"Error: Account '{account_no}' not found.", "danger")
     elif not book:
-        flash("Error: Book ISBN not found.", "danger")
+        flash(f"Error: ISBN '{isbn}' not found.", "danger")
     elif book.copies < 1:
-        flash("Error: No copies available to issue.", "warning")
+        flash(f"Error: '{book.title}' is out of stock!", "warning")
     else:
-        book.copies -= 1
-        new_txn = Transaction(
-            user_id=user.id,
-            book_id=book.id,
-            issue_date=datetime.utcnow(),
-            due_date=datetime.utcnow() + timedelta(days=14)
-        )
-        db.session.add(new_txn)
-        db.session.commit()
-        flash(f"Success! {book.title} issued to {user.name}.", "success")
+        try:
+            # 2. Process Issue
+            book.copies -= 1
+            new_txn = Transaction(
+                user_id=user.id,
+                book_id=book.id,
+                issue_date=datetime.utcnow(),
+                due_date=datetime.utcnow() + timedelta(days=14)
+            )
+            db.session.add(new_txn)
+            db.session.commit()
+            flash(f"Success! {book.title} issued to {user.name}.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash("An error occurred while issuing the book.", "danger")
+            print(f"Issue Error: {e}")
         
     return redirect(url_for('admin_dashboard'))
+
 
 @app.route('/send_reminder/<int:transaction_id>')
 @login_required
