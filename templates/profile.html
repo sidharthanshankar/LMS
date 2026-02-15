@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 text-center p-4 h-100">
+                <div class="mb-3">
+                    <i class="fas fa-user-circle fa-5x text-primary"></i>
+                </div>
+                <h4 class="fw-bold mb-1">{{ current_user.name }}</h4>
+                <p class="badge bg-primary-soft text-primary px-3">{{ current_user.role | upper }}</p>
+                <hr class="my-4">
+                <div class="text-start">
+                    <p class="mb-2"><i class="fas fa-id-card me-2 text-muted"></i><strong>Acc No:</strong> {{ current_user.account_no }}</p>
+                    <p class="mb-4"><i class="fas fa-envelope me-2 text-muted"></i><strong>Email:</strong> {{ current_user.email }}</p>
+                </div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div class="bg-light p-3 rounded-3">
+                            <h5 class="fw-bold mb-0 text-dark">{{ active_borrows|length }}</h5>
+                            <small class="text-muted">Held</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="bg-light p-3 rounded-3">
+                            <h5 class="fw-bold mb-0 text-dark">{{ requests|length }}</h5>
+                            <small class="text-muted">Requests</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 border-start border-4 border-success">
+                <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-book me-2 text-success"></i>Currently Borrowed</h5>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Book Title</th>
+                                <th>Due Date</th>
+                                <th>Fine</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for txn in active_borrows %}
+                            <tr>
+                                <td class="fw-bold">{{ txn.book.title }}</td>
+                                <td>
+                                    <span class="{% if now > txn.due_date %}text-danger fw-bold{% endif %}">
+                                        {{ txn.due_date.strftime('%d-%b-%Y') }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% set days = (now - txn.due_date).days %}
+                                    <span class="{% if days > 0 %}text-danger fw-bold{% else %}text-success{% endif %}">
+                                        ₹ {{ days * 5 if days > 0 else 0 }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="text-center py-4 text-muted">No books currently held.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-clock me-2 text-primary"></i>Recent Requests</h5>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Book Title</th>
+                                <th>Requested</th>
+                                <th>Status</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requests %}
+                            <tr>
+                                <td>{{ req.book.title }}</td>
+                                <td>{{ req.request_date.strftime('%d-%b') }}</td>
+                                <td>
+                                    <span class="badge {% if req.status == 'Pending' %}bg-warning{% elif req.status == 'Approved' %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ req.status }}
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    {% if req.status == 'Pending' %}
+                                    <form action="{{ url_for('cancel_request', req_id=req.id) }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Cancel Request">
+                                            <i class="fas fa-times-circle"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-center py-4 text-muted">No history found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
