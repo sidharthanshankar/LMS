@@ -1,5 +1,6 @@
 from flask import Flask
 from controller.database import db
+import os
 from controller.config import Config
 from controller.models import *
 from flask import render_template, request, redirect, url_for, flash
@@ -9,6 +10,9 @@ from controller.models import User # Ensure User is imported
 from datetime import datetime, timedelta
 from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
+load_dotenv()  # This loads the variables from .env
+print(f"DEBUG: Password found: {os.environ.get('MAIL_PASSWORD')}")
 
 # 1. Initialize App
 app = Flask(__name__)
@@ -192,7 +196,6 @@ def manage_request(req_id, action):
             req.status = 'Approved'
             req.book.copies -= 1
             
-            # Record both Issue and Due dates to keep history accurate
             new_txn = Transaction(
                 user_id=req.user_id,
                 book_id=req.book_id,
@@ -200,16 +203,39 @@ def manage_request(req_id, action):
                 due_date=datetime.utcnow() + timedelta(days=14)
             )
             db.session.add(new_txn)
-            flash(f"Approved! {req.book.title} issued to {req.user.name}.", "success")
-        else:
-            flash("Error: Out of stock!", "danger")
             
-    elif action == 'reject':
-        req.status = 'Rejected'
-        flash(f"Request for {req.book.title} rejected.", "info")
+            # --- NEW EMAIL LOGIC ---
+            try:
+                msg = Message(subject="Book Request Approved!",
+                              sender=app.config['MAIL_USERNAME'],
+                              recipients=[req.user.email])
+                msg.body = f"Hello {req.user.name},\n\nYour request for '{req.book.title}' has been approved! You can now collect it from the library.\nDue Date: {new_txn.due_date.strftime('%d-%b-%Y')}."
+                mail.send(msg)
+            except Exception as e:
+                print(f"Email error: {e}") # Fails safely without breaking the app
+            # -----------------------
+                
+            flash(f"Approved! {req.book.title} issued to {req.user.name}.", "success")
         
     db.session.commit()
     return redirect(url_for('admin_dashboard'))
+
+@app.route('/join_waitlist/<int:book_id>', methods=['POST'])
+@login_required
+def join_waitlist(book_id):
+    book = Book.query.get_or_404(book_id)
+    
+    # Check if already waiting or already requested
+    already_waiting = Waitlist.query.filter_by(user_id=current_user.id, book_id=book.id).first()
+    if already_waiting:
+        flash("You are already on the waiting list for this book.", "info")
+        return redirect(url_for('user_dashboard'))
+        
+    new_wait = Waitlist(user_id=current_user.id, book_id=book.id)
+    db.session.add(new_wait)
+    db.session.commit()
+    flash(f"You have joined the waitlist for '{book.title}'. We will email you when it's returned!", "success")
+    return redirect(url_for('user_dashboard'))
 
 @app.route('/user_dashboard')
 @login_required
@@ -254,13 +280,12 @@ def browse_books():
     # Ensure this points to your NEW browse_books.html file, NOT index.html
     return render_template('browse_books.html', books=books)
 
+
 @app.route('/request_book/<int:book_id>', methods=['POST'])
 @login_required
 def request_book(book_id):
-    # 1. Verification
     book = Book.query.get_or_404(book_id)
     
-    # 2. Prevent Duplicate Pending Requests
     existing_request = BookRequest.query.filter_by(
         user_id=current_user.id, 
         book_id=book_id, 
@@ -270,15 +295,13 @@ def request_book(book_id):
     if existing_request:
         flash(f"You already have a pending request for '{book.title}'.", "warning")
     else:
-        # 3. Create the Database Record
-        # Ensure your Model uses 'Pending' as the default status
         new_req = BookRequest(user_id=current_user.id, book_id=book_id, status='Pending')
         db.session.add(new_req)
         db.session.commit()
         flash(f"Request for '{book.title}' sent to Librarian!", "success")
     
-    # 4. Redirect (Choose one)
-    return redirect(url_for('browse_books'))
+    # FIX: Redirect back to user_dashboard instead of browse_books
+    return redirect(url_for('user_dashboard'))
 
 @app.route('/cancel_request/<int:req_id>', methods=['POST'])
 @login_required
@@ -368,39 +391,91 @@ def issue_book():
         
     return redirect(url_for('admin_dashboard'))
 
-
 @app.route('/send_reminder/<int:transaction_id>')
 @login_required
 def send_reminder(transaction_id):
+    # 1. Authorization Check
     if current_user.role != 'librarian':
-        flash("Unauthorized access!", "danger")
+        flash("Unauthorized!", "danger")
         return redirect(url_for('index'))
 
     txn = db.session.get(Transaction, transaction_id)
+    
+    # 2. Safety Check 1: Does the transaction exist?
     if not txn:
         flash("Transaction not found.", "danger")
         return redirect(url_for('admin_dashboard'))
 
-    # FIXED: Changed 'txn.borrower' to 'txn.user'
-    user = txn.user 
-    days_over = (datetime.utcnow() - txn.due_date).days
-    fine_amount = days_over * 5 if days_over > 0 else 0
-
-    msg = Message(
-        subject=f"Library Reminder: {txn.book.title}",
-        sender=app.config['MAIL_USERNAME'],
-        recipients=[user.email]
-    )
-    
-    msg.body = f"Hello {user.name},\n\nPlease return '{txn.book.title}'.\nDue Date: {txn.due_date.strftime('%d-%m-%Y')}\nCurrent Fine: ₹{fine_amount}."
-
+    # 3. Safety Check 2: Don't remind for books already back!
+    if txn.return_date:
+        flash("Cannot send reminder for a returned book.", "warning")
+        return redirect(url_for('admin_dashboard'))
+        
+    # 4. The Actual Email Logic
     try:
+        fine_amount = txn.calculate_fine
+        msg = Message(
+            subject=f"Manual Reminder: '{txn.book.title}' is Overdue",
+            sender=app.config['MAIL_USERNAME'],
+            recipients=[txn.user.email]
+        )
+        msg.body = f"Hello {txn.user.name},\n\nThis is a direct reminder from the librarian. The book '{txn.book.title}' was due on {txn.due_date.strftime('%d-%m-%Y')}.\nCurrent Fine: ₹{fine_amount}.\n\nPlease return it to the library immediately."
+        
         mail.send(msg)
-        flash(f"Reminder sent successfully to {user.email}!", "success")
+        
+        # Update our pre-planned tracking flag
+        txn.reminder_sent = True
+        db.session.commit()
+        
+        flash(f"Reminder sent to {txn.user.name} for '{txn.book.title}'.", "success")
     except Exception as e:
-        print(f"CRITICAL EMAIL ERROR: {e}") 
-        flash("Email service is currently unavailable.", "warning")
+        print(f"Failed manual email to {txn.user.email}: {e}")
+        flash("Error sending email. Please check server logs.", "danger")
+        
+    # 5. The crucial final return statement to prevent crashes
+    return redirect(url_for('admin_dashboard'))
 
+@app.route('/run_daily_notifications', methods=['POST'])
+@login_required
+def run_daily_notifications():
+    if current_user.role != 'librarian':
+        flash("Unauthorized!", "danger")
+        return redirect(url_for('index'))
+
+    now = datetime.utcnow()
+    # Find all books that are overdue and not yet returned
+    overdue_txns = Transaction.query.filter(
+        Transaction.return_date == None,
+        Transaction.due_date < now
+    ).all()
+
+    if not overdue_txns:
+        flash("No overdue books found today.", "info")
+        return redirect(url_for('admin_dashboard'))
+
+    sent_count = 0
+    for txn in overdue_txns:
+        try:
+            # Using your model property for the fine
+            fine_amount = txn.calculate_fine 
+            
+            msg = Message(
+                subject=f"Library Overdue Reminder: {txn.book.title}",
+                sender=app.config['MAIL_USERNAME'],
+                recipients=[txn.user.email]
+            )
+            msg.body = f"Hello {txn.user.name},\n\nThis is a reminder that '{txn.book.title}' is overdue.\nDue Date: {txn.due_date.strftime('%d-%m-%Y')}\nCurrent Fine: ₹{fine_amount}.\n\nPlease return it to the library."
+            
+            mail.send(msg)
+            
+            # Update the flag we preplanned in models.py
+            txn.reminder_sent = True 
+            sent_count += 1
+        except Exception as e:
+            print(f"Failed email to {txn.user.email}: {e}")
+
+    db.session.commit() # Save the 'reminder_sent' updates
+    flash(f"Success! {sent_count} members notified.", "success")
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/return_book/<int:transaction_id>', methods=['POST'])
@@ -427,6 +502,22 @@ def return_book(transaction_id):
     book = db.session.get(Book, txn.book_id)
     # FIXED: Changed 'available_copies' to 'copies' to match your model
     book.copies += 1
+
+    # --- NEW WAITLIST CHECKER ---
+    next_in_line = Waitlist.query.filter_by(book_id=book.id).order_by(Waitlist.date_joined.asc()).first()
+    if next_in_line:
+        try:
+            msg = Message(subject="Waitlist Alert: Book Available!",
+                          sender=app.config['MAIL_USERNAME'],
+                          recipients=[next_in_line.user.email])
+            msg.body = f"Hello {next_in_line.user.name},\n\nGreat news! The book '{book.title}' you were waiting for has just been returned. Please log in to request it before someone else does!"
+            mail.send(msg)
+            
+            # Remove them from waitlist since they've been notified
+            db.session.delete(next_in_line) 
+        except Exception as e:
+            print(f"Waitlist Email Error: {e}")
+    # ----------------------------
 
     db.session.commit()
     

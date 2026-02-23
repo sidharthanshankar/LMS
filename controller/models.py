@@ -26,6 +26,8 @@ class Transaction(db.Model):
     due_date = db.Column(db.DateTime, nullable=False)
     return_date = db.Column(db.DateTime, nullable=True)
 
+    reminder_sent = db.Column(db.Boolean, default=False)
+
     # Relationships - Defined only once per link
     user = db.relationship('User', backref='transactions', lazy=True)
     book = db.relationship('Book', backref='transactions', lazy=True)
@@ -47,3 +49,12 @@ class BookRequest(db.Model):
 
     user = db.relationship('User', backref='book_requests', lazy=True)
     book = db.relationship('Book', backref='book_requests', lazy=True)
+
+class Waitlist(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    book_id = db.Column(db.Integer, db.ForeignKey('book.id'), nullable=False)
+    date_joined = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref='waitlists', lazy=True)
+    book = db.relationship('Book', backref='waitlists', lazy=True)

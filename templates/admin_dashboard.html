@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="container py-4">
+    
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold text-dark">
@@ -45,6 +47,20 @@
         </div>
     </div>
 
+    <div class="card border-0 shadow-sm mb-4 bg-light border-start border-warning border-4">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h6 class="fw-bold mb-0 text-dark">Daily Automation</h6>
+                <p class="mb-0 text-muted small">Send overdue email notifications to all members with one click.</p>
+            </div>
+            <form action="{{ url_for('run_daily_notifications') }}" method="POST">
+                <button type="submit" class="btn btn-warning fw-bold shadow-sm px-4">
+                    <i class="fas fa-paper-plane me-2"></i>Run Daily Reminders
+                </button>
+            </form>
+        </div>
+    </div>
+
     <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
         <div class="card-header bg-white border-0 pt-4 px-4">
             <ul class="nav nav-pills card-header-pills" id="pills-tab" role="tablist">
@@ -60,7 +76,7 @@
                 </li>
                 <li class="nav-item">
                     <button class="nav-link px-4 fw-bold" data-bs-toggle="pill" data-bs-target="#pills-requests" type="button">
-                        <i class="fas fa-paper-plane me-2"></i>Requests 
+                        <i class="fas fa-envelope-open-text me-2"></i>Requests 
                         <span class="badge bg-danger ms-1">{{ pending_requests|length }}</span>
                     </button>
                 </li>
@@ -69,6 +85,7 @@
         
         <div class="card-body p-0">
             <div class="tab-content" id="pills-tabContent">
+                
                 <div class="tab-pane fade show active p-4" id="pills-users">
                     <div class="row mb-4 align-items-center">
                         <div class="col-md-6">
@@ -76,8 +93,10 @@
                         </div>
                         <div class="col-md-6">
                             <form action="{{ url_for('admin_dashboard') }}" method="GET" class="input-group">
-                                <input type="text" name="search_user" class="form-control" placeholder="Search by name or ID..." value="{{ search_query }}">
-                                <button type="submit" class="btn btn-primary">Search</button>
+                                <input type="text" name="search_user" class="form-control border-end-0" placeholder="Search by name or Account No..." value="{{ search_query or '' }}">
+                                <button type="submit" class="btn btn-outline-primary border-start-0">
+                                    <i class="fas fa-search"></i>
+                                </button>
                             </form>
                         </div>
                     </div>
@@ -89,14 +108,16 @@
                             <tbody>
                                 {% for user in users %}
                                 <tr>
-                                    <td><span class="badge bg-light text-primary border">{{ user.account_no }}</span></td>
+                                    <td><span class="badge bg-light text-primary border px-2">{{ user.account_no }}</span></td>
                                     <td class="fw-bold">{{ user.name }}</td>
                                     <td>{{ user.role | title }}</td>
                                     <td>{{ user.email }}</td>
                                     <td class="text-end">
                                         {% if user.role != 'librarian' %}
-                                        <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" onsubmit="return confirm('Delete this member?');">
-                                            <button type="submit" class="btn btn-sm text-danger"><i class="fas fa-trash"></i></button>
+                                        <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" onsubmit="return confirm('Permanently delete this member?');">
+                                            <button type="submit" class="btn btn-sm text-danger btn-link p-0">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
                                         </form>
                                         {% endif %}
                                     </td>
@@ -111,26 +132,34 @@
                     <div class="table-responsive">
                         <table class="table table-hover align-middle">
                             <thead class="table-light">
-                                <tr><th>Borrower</th><th>Book</th><th>Due Date</th><th>Fine</th><th class="text-end">Actions</th></tr>
+                                <tr><th>Borrower</th><th>Book Title</th><th>Due Date</th><th>Fine</th><th>Status</th><th class="text-end">Actions</th></tr>
                             </thead>
                             <tbody>
                                 {% for txn in transactions %}
                                 <tr>
                                     <td>{{ txn.user.name }}</td>
-                                    <td>{{ txn.book.title }}</td>
+                                    <td class="fw-bold">{{ txn.book.title }}</td>
                                     <td>{{ txn.due_date.strftime('%d-%b-%Y') }}</td>
                                     <td>
-                                        {% set days = (now - txn.due_date).days %}
-                                        <span class="{% if days > 0 %}text-danger fw-bold{% endif %}">
-                                            ₹ {{ days * 5 if days > 0 else 0 }}
+                                        <span class="{% if txn.calculate_fine > 0 %}text-danger fw-bold{% endif %}">
+                                            ₹ {{ txn.calculate_fine }}
                                         </span>
+                                    </td>
+                                    <td>
+                                        {% if txn.reminder_sent %}
+                                            <span class="badge bg-info text-dark"><i class="fas fa-check me-1"></i>Notified</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Pending</span>
+                                        {% endif %}
                                     </td>
                                     <td class="text-end">
                                         <form action="{{ url_for('return_book', transaction_id=txn.id) }}" method="POST">
-                                            <button type="submit" class="btn btn-sm btn-outline-primary">Mark Returned</button>
+                                            <button type="submit" class="btn btn-sm btn-outline-primary px-3 rounded-pill">Mark Returned</button>
                                         </form>
                                     </td>
                                 </tr>
+                                {% else %}
+                                <tr><td colspan="6" class="text-center py-4 text-muted">No books currently issued.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -141,44 +170,55 @@
                     <div class="table-responsive">
                         <table class="table table-hover align-middle">
                             <thead class="table-light">
-                                <tr><th>Member</th><th>Book</th><th>Date</th><th class="text-end">Actions</th></tr>
+                                <tr><th>Member</th><th>Requested Book</th><th>Request Date</th><th class="text-end">Actions</th></tr>
                             </thead>
                             <tbody>
                                 {% for req in pending_requests %}
                                 <tr>
-                                    <td>{{ req.user.name }}</td>
-                                    <td>{{ req.book.title }}</td>
+                                    <td>{{ req.user.name }} <br><small class="text-muted">{{ req.user.account_no }}</small></td>
+                                    <td class="fw-bold">{{ req.book.title }}</td>
                                     <td>{{ req.request_date.strftime('%d-%b-%Y') }}</td>
                                     <td class="text-end">
-                                        <a href="{{ url_for('manage_request', req_id=req.id, action='approve') }}" class="btn btn-sm btn-success">Approve</a>
-                                        <a href="{{ url_for('manage_request', req_id=req.id, action='reject') }}" class="btn btn-sm btn-danger">Reject</a>
+                                        <div class="btn-group shadow-sm">
+                                            <a href="{{ url_for('manage_request', req_id=req.id, action='approve') }}" class="btn btn-sm btn-success">Approve</a>
+                                            <a href="{{ url_for('manage_request', req_id=req.id, action='reject') }}" class="btn btn-sm btn-danger">Reject</a>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="4" class="text-center text-muted py-4">No pending book requests at the moment.</td>
+                                    <td colspan="4" class="text-center text-muted py-5">
+                                        <i class="fas fa-check-circle fa-2x mb-2 text-light"></i><br>
+                                        No pending book requests at the moment.
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </div> </div> </div> </div> <div class="modal fade" id="addBookModal" tabindex="-1">
+
+            </div> 
+        </div> 
+    </div>
+</div>
+
+<div class="modal fade" id="addBookModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add New Book</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold">Add New Book</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ url_for('add_book') }}" method="POST">
-                <div class="modal-body">
-                    <div class="mb-3"><input type="text" name="title" class="form-control" placeholder="Book Title" required></div>
-                    <div class="mb-3"><input type="text" name="author" class="form-control" placeholder="Author Name" required></div>
-                    <div class="mb-3"><input type="text" name="isbn" class="form-control" placeholder="ISBN Number" required></div>
-                    <div class="mb-3"><input type="number" name="copies" class="form-control" placeholder="Number of Copies" required></div>
+                <div class="modal-body p-4">
+                    <div class="mb-3"><label class="small fw-bold">Book Title</label><input type="text" name="title" class="form-control" placeholder="Enter title" required></div>
+                    <div class="mb-3"><label class="small fw-bold">Author Name</label><input type="text" name="author" class="form-control" placeholder="Enter author" required></div>
+                    <div class="mb-3"><label class="small fw-bold">ISBN</label><input type="text" name="isbn" class="form-control" placeholder="Enter ISBN" required></div>
+                    <div class="mb-3"><label class="small fw-bold">Available Copies</label><input type="number" name="copies" class="form-control" placeholder="e.g. 5" required></div>
                 </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary w-100">Add to Inventory</button>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Add to Inventory</button>
                 </div>
             </form>
         </div>
@@ -187,13 +227,13 @@
 
 <div class="modal fade" id="issueBookModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Manual Issue</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold">Issue Book Manually</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ url_for('issue_book') }}" method="POST">
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <div class="mb-3">
                         <label class="small fw-bold">Member Account No</label>
                         <input type="text" name="account_no" class="form-control" placeholder="e.g. STU101" required>
@@ -203,11 +243,12 @@
                         <input type="text" name="isbn" class="form-control" placeholder="e.g. 123456" required>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-success w-100">Confirm Issue</button>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-success w-100 py-2 fw-bold">Confirm Issue</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
 {% endblock %}
