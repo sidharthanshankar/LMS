@@ -1,18 +1,49 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-5">
-    <div class="row align-items-center p-5 bg-white shadow-sm rounded-4">
-        <div class="col-md-6">
-            <h1 class="display-4 fw-bold text-dark">Smart Library <span class="text-primary">Management</span></h1>
-            <p class="lead text-muted">A dedicated platform for Students, Staff, and Librarians to manage academic resources efficiently.</p>
-            <div class="mt-4">
-                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg px-4 me-2">Get Started</a>
-                <button class="btn btn-outline-secondary btn-lg px-4">Browse Books</button>
-            </div>
-        </div>
-        <div class="col-md-6 text-center">
-            <i class="fas fa-book-reader fa-10x text-primary opacity-25"></i>
+<div class="container-fluid d-flex align-items-center justify-content-center home-hero-section">
+    
+    <div class="text-center p-5 shadow-lg rounded-4 bg-white" style="max-width: 800px; width: 90%;">
+        
+        <h5 class="text-uppercase tracking-widest text-secondary mb-10" style="letter-spacing: 3px;">
+            RVCE
+        </h5>
+
+        <h1 class="display-4 fw-bold text-dark mb-3">
+            Library Management System
+        </h1>
+        
+        <p class="lead text-muted mb-5 px-lg-5">
+            Welcome to the central hub for book management, visitor tracking, and automated library services at RVCE.
+        </p>
+
+        <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('admin_dashboard' if current_user.role == 'librarian' else 'user_dashboard') }}" 
+                   class="btn btn-primary btn-lg px-5 py-3 rounded-pill shadow">
+                    Go to Dashboard
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg px-5 py-3 rounded-pill shadow">
+                    Get Started
+                </a>
+                <a href="{{ url_for('browse_books') }}" class="btn btn-outline-secondary btn-lg px-5 py-3 rounded-pill">
+                    Browse Books
+                </a>
+            {% endif %}
         </div>
     </div>
 </div>
+
+<style>
+    body {
+        overflow-x: hidden;
+    }
+    .display-4 {
+        font-size: calc(1.5rem + 1.5vw);
+    }
+    @media (max-width: 576px) {
+        .p-5 { padding: 1.5rem !important; }
+        .mb-5 { margin-bottom: 2rem !important; }
+    }
+</style>
 {% endblock %}

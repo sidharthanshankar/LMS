@@ -1,213 +1,270 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="fw-bold text-dark">
-                <i class="fas fa-university me-2 text-primary"></i>Librarian Panel
-            </h2>
-            <p class="text-muted small">Managing Assets, Members, and Circulation</p>
-        </div>
-        <div class="d-flex gap-2">
-            <button class="btn btn-success shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#issueBookModal">
-                <i class="fas fa-hand-holding me-2"></i>Issue Book
-            </button>
-            <button class="btn btn-primary shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#addBookModal">
-                <i class="fas fa-plus me-2"></i>Add Book
-            </button>
-        </div>
-    </div>
-
-    <div class="row g-4 mb-5">
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm p-3 bg-white h-100 border-top border-primary border-4">
-                <h6 class="text-muted small fw-bold text-uppercase">Total Books</h6>
-                <h3 class="fw-bold mb-0">{{ stats.total_books }}</h3>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm p-3 bg-white h-100 border-top border-success border-4">
-                <h6 class="text-muted small fw-bold text-uppercase">Students</h6>
-                <h3 class="fw-bold mb-0 text-success">{{ stats.total_students }}</h3>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm p-3 bg-white h-100 border-top border-info border-4">
-                <h6 class="text-muted small fw-bold text-uppercase">Staff</h6>
-                <h3 class="fw-bold mb-0 text-info">{{ stats.total_staff }}</h3>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm p-3 bg-white h-100 border-top border-danger border-4">
-                <h6 class="text-muted small fw-bold text-uppercase">Expected Fines</h6>
-                <h3 class="fw-bold mb-0 text-danger">₹ {{ stats.total_fines }}</h3>
-            </div>
-        </div>
-    </div>
-
-    <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
-        <div class="card-header bg-white border-0 pt-4 px-4">
-            <ul class="nav nav-pills card-header-pills" id="pills-tab" role="tablist">
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-md-3 col-lg-2 bg-white shadow-sm rounded-4 p-3 mb-4" style="min-height: 90vh;">
+            <h5 class="fw-bold mb-4 text-primary"><i class="fas fa-university me-2"></i>LMS Admin</h5>
+            <ul class="nav flex-column gap-2">
                 <li class="nav-item">
-                    <button class="nav-link active px-4 fw-bold" data-bs-toggle="pill" data-bs-target="#pills-users" type="button">
-                        <i class="fas fa-users-cog me-2"></i>Member Registry
-                    </button>
+                    <a class="nav-link active rounded-3 bg-primary text-white p-3" href="{{ url_for('admin_dashboard') }}">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    </a>
+                </li>
+                <li class="nav-item mt-3">
+                    <a class="nav-link rounded-3 text-dark p-3 shadow-sm border border-warningtp" href="//127.0.0.1:5000/visitor-history" style="background: #fff9e6;">
+                        <i class="fas fa-broadcast-tower me-2 text-warning"></i><strong>TEL NET</strong>
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <button class="nav-link px-4 fw-bold" data-bs-toggle="pill" data-bs-target="#pills-issues" type="button">
-                        <i class="fas fa-history me-2"></i>Active Issues
-                    </button>
+                    <a class="nav-link rounded-3 text-dark p-3" href="{{ url_for('visitor_history') }}">
+                        <i class="fas fa-history me-2 text-info"></i>Visitor History
+                    </a>
                 </li>
-                <li class="nav-item">
-                    <button class="nav-link px-4 fw-bold" data-bs-toggle="pill" data-bs-target="#pills-requests" type="button">
-                        <i class="fas fa-paper-plane me-2"></i>Requests 
-                        <span class="badge bg-danger ms-1">{{ pending_requests|length }}</span>
-                    </button>
+                <li class="nav-item mt-5">
+                    <a class="nav-link rounded-3 text-danger p-3" href="{{ url_for('logout') }}">
+                        <i class="fas fa-sign-out-alt me-2"></i>Logout
+                    </a>
                 </li>
             </ul>
         </div>
-        
-        <div class="card-body p-0">
-            <div class="tab-content" id="pills-tabContent">
-                <div class="tab-pane fade show active p-4" id="pills-users">
-                    <div class="row mb-4 align-items-center">
-                        <div class="col-md-6">
-                            <h5 class="fw-bold mb-0">Member List</h5>
+
+        <div class="col-md-9 col-lg-10">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+                <h2 class="fw-bold m-0">Library Overview</h2>
+                
+                <form action="{{ url_for('run_daily_notifications') }}" method="POST">
+                    <button type="submit" class="btn btn-danger rounded-pill px-4 shadow-sm">
+                        <i class="fas fa-bell me-2"></i>Run Daily Reminders
+                    </button>
+                </form>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm rounded-4 p-3 bg-primary text-white">
+                        <small>Total Books</small>
+                        <h3 class="fw-bold">{{ stats.total_books }}</h3>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm rounded-4 p-3 bg-success text-white">
+                        <small>Total Students</small>
+                        <h3 class="fw-bold">{{ stats.total_students }}</h3>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm rounded-4 p-3 bg-warning text-dark">
+                        <small>Pending Fines</small>
+                        <h3 class="fw-bold">₹{{ stats.total_fines }}</h3>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm rounded-4 p-3 bg-info text-white">
+                        <small>Visitors Today</small>
+                        <h3 class="fw-bold">{{ stats.visitor_count }}</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-4">
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm rounded-4 h-100">
+                        <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                            <h5 class="fw-bold m-0"><i class="fas fa-users me-2 text-primary"></i>Manage Users</h5>
+                            <form method="GET" action="{{ url_for('admin_dashboard') }}" class="d-flex">
+                                <input type="text" name="search_user" class="form-control form-control-sm me-2" placeholder="Search User..." value="{{ search_query }}">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Search</button>
+                            </form>
                         </div>
-                        <div class="col-md-6">
-                            <form action="{{ url_for('admin_dashboard') }}" method="GET" class="input-group">
-                                <input type="text" name="search_user" class="form-control" placeholder="Search by name or ID..." value="{{ search_query }}">
-                                <button type="submit" class="btn btn-primary">Search</button>
+                        <div class="table-responsive p-3" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table align-middle table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Account</th>
+                                        <th>Name</th>
+                                        <th>Role</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in users %}
+                                    <tr>
+                                        <td><code>{{ user.account_no }}</code></td>
+                                        <td>{{ user.name }}</td>
+                                        <td><span class="badge bg-secondary">{{ user.role | title }}</span></td>
+                                        <td>
+                                            {% if user.role != 'librarian' %}
+                                            <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this user?');">
+                                                <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                            </form>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="card border-0 shadow-sm rounded-4 h-100 border-start border-warning border-5">
+                        <div class="card-header bg-white border-0 py-3 d-flex justify-content-between">
+                            <h5 class="fw-bold m-0"><i class="fas fa-eye me-2 text-warning"></i>Recent Logins</h5>
+                        </div>
+                        <div class="table-responsive p-3">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Visitor Name</th>
+                                        <th>Account</th>
+                                        <th>Login Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in recent_logs %}
+                                    <tr>
+                                        <td><strong>{{ log.user.name }}</strong></td>
+                                        <td><code>{{ log.user.account_no }}</code></td>
+                                        <td>{{ log.timestamp.strftime('%I:%M %p') }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="3" class="text-muted text-center">No visitors yet.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm rounded-4">
+                        <div class="card-header bg-white border-0 py-3">
+                            <h5 class="fw-bold m-0"><i class="fas fa-book-medical me-2 text-success"></i>Add New Book</h5>
+                        </div>
+                        <div class="card-body">
+                            <form action="{{ url_for('add_book') }}" method="POST">
+                                <div class="row g-2">
+                                    <div class="col-md-6"><input type="text" name="title" class="form-control" placeholder="Book Title" required></div>
+                                    <div class="col-md-6"><input type="text" name="author" class="form-control" placeholder="Author" required></div>
+                                    <div class="col-md-8"><input type="text" name="isbn" class="form-control" placeholder="ISBN" required></div>
+                                    <div class="col-md-4"><input type="number" name="copies" class="form-control" placeholder="Copies" min="1" required></div>
+                                </div>
+                                <button type="submit" class="btn btn-success mt-3 w-100">Add to Inventory</button>
                             </form>
                         </div>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light">
-                                <tr><th>Acc No</th><th>Name</th><th>Role</th><th>Email</th><th class="text-end">Actions</th></tr>
-                            </thead>
-                            <tbody>
-                                {% for user in users %}
-                                <tr>
-                                    <td><span class="badge bg-light text-primary border">{{ user.account_no }}</span></td>
-                                    <td class="fw-bold">{{ user.name }}</td>
-                                    <td>{{ user.role | title }}</td>
-                                    <td>{{ user.email }}</td>
-                                    <td class="text-end">
-                                        {% if user.role != 'librarian' %}
-                                        <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" onsubmit="return confirm('Delete this member?');">
-                                            <button type="submit" class="btn btn-sm text-danger"><i class="fas fa-trash"></i></button>
-                                        </form>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
                 </div>
 
-                <div class="tab-pane fade p-4" id="pills-issues">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light">
-                                <tr><th>Borrower</th><th>Book</th><th>Due Date</th><th>Fine</th><th class="text-end">Actions</th></tr>
-                            </thead>
-                            <tbody>
-                                {% for txn in transactions %}
-                                <tr>
-                                    <td>{{ txn.user.name }}</td>
-                                    <td>{{ txn.book.title }}</td>
-                                    <td>{{ txn.due_date.strftime('%d-%b-%Y') }}</td>
-                                    <td>
-                                        {% set days = (now - txn.due_date).days %}
-                                        <span class="{% if days > 0 %}text-danger fw-bold{% endif %}">
-                                            ₹ {{ days * 5 if days > 0 else 0 }}
-                                        </span>
-                                    </td>
-                                    <td class="text-end">
-                                        <form action="{{ url_for('return_book', transaction_id=txn.id) }}" method="POST">
-                                            <button type="submit" class="btn btn-sm btn-outline-primary">Mark Returned</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm rounded-4">
+                        <div class="card-header bg-white border-0 py-3">
+                            <h5 class="fw-bold m-0"><i class="fas fa-hand-holding me-2 text-primary"></i>Issue Book (Manual)</h5>
+                        </div>
+                        <div class="card-body">
+                            <form action="{{ url_for('issue_book') }}" method="POST">
+                                <div class="mb-2">
+                                    <input type="text" name="account_no" class="form-control" placeholder="Student/Staff Account No" required>
+                                </div>
+                                <div class="mb-2">
+                                    <input type="text" name="isbn" class="form-control" placeholder="Book ISBN" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary mt-1 w-100">Issue Book</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
-
-                <div class="tab-pane fade p-4" id="pills-requests">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light">
-                                <tr><th>Member</th><th>Book</th><th>Date</th><th class="text-end">Actions</th></tr>
-                            </thead>
-                            <tbody>
-                                {% for req in pending_requests %}
-                                <tr>
-                                    <td>{{ req.user.name }}</td>
-                                    <td>{{ req.book.title }}</td>
-                                    <td>{{ req.request_date.strftime('%d-%b-%Y') }}</td>
-                                    <td class="text-end">
-                                        <a href="{{ url_for('manage_request', req_id=req.id, action='approve') }}" class="btn btn-sm btn-success">Approve</a>
-                                        <a href="{{ url_for('manage_request', req_id=req.id, action='reject') }}" class="btn btn-sm btn-danger">Reject</a>
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted py-4">No pending book requests at the moment.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div> </div> </div> </div> <div class="modal fade" id="addBookModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add New Book</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('add_book') }}" method="POST">
-                <div class="modal-body">
-                    <div class="mb-3"><input type="text" name="title" class="form-control" placeholder="Book Title" required></div>
-                    <div class="mb-3"><input type="text" name="author" class="form-control" placeholder="Author Name" required></div>
-                    <div class="mb-3"><input type="text" name="isbn" class="form-control" placeholder="ISBN Number" required></div>
-                    <div class="mb-3"><input type="number" name="copies" class="form-control" placeholder="Number of Copies" required></div>
+
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="fw-bold m-0"><i class="fas fa-clock me-2 text-warning"></i>Pending Requests</h5>
                 </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary w-100">Add to Inventory</button>
+                <div class="table-responsive p-3">
+                    <table class="table align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Student</th>
+                                <th>Book Title</th>
+                                <th>Date</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in pending_requests %}
+                            <tr>
+                                <td>{{ req.user.name }} (<code>{{ req.user.account_no }}</code>)</td>
+                                <td>{{ req.book.title }}</td>
+                                <td>{{ req.request_date.strftime('%d-%m-%Y') }}</td>
+                                <td>
+                                    <a href="{{ url_for('manage_request', req_id=req.id, action='approve') }}" class="btn btn-success">Approve</a>
+
+<a href="{{ url_for('manage_request', req_id=req.id, action='reject') }}" class="btn btn-danger">Reject</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-center text-muted py-3">No pending requests.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-            </form>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="fw-bold m-0"><i class="fas fa-exchange-alt me-2 text-info"></i>Borrowed Books</h5>
+                </div>
+                <div class="table-responsive p-3">
+                    <table class="table align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Borrower</th>
+                                <th>Book</th>
+                                <th>Due Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for txn in transactions %}
+                            <tr>
+                                <td>{{ txn.user.name }}</td>
+                                <td>{{ txn.book.title }}</td>
+                                <td>{{ txn.due_date.strftime('%d-%m-%Y') }}</td>
+                                <td>
+                                    {% if now > txn.due_date %}
+                                        <span class="badge bg-danger">Overdue</span>
+                                    {% else %}
+                                        <span class="badge bg-success">On Time</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form action="{{ url_for('return_book', transaction_id=txn.id) }}" method="POST" class="d-inline">
+                                        <button class="btn btn-sm btn-outline-primary">Return</button>
+                                    </form>
+                                    <a href="{{ url_for('send_reminder', transaction_id=txn.id) }}" class="btn btn-sm btn-warning ms-1" title="Send manual reminder via email">
+                                        <i class="fas fa-envelope"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-center text-muted py-3">No active borrowed books right now.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="issueBookModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Manual Issue</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form action="{{ url_for('issue_book') }}" method="POST">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="small fw-bold">Member Account No</label>
-                        <input type="text" name="account_no" class="form-control" placeholder="e.g. STU101" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="small fw-bold">Book ISBN</label>
-                        <input type="text" name="isbn" class="form-control" placeholder="e.g. 123456" required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-success w-100">Confirm Issue</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<style>
+    /* Prevents tables from overlapping the sidebar on smaller screens */
+    .table-responsive {
+        overflow-x: auto;
+    }
+</style>
 {% endblock %}
