@@ -1,5 +1,6 @@
 from flask import Flask
 from controller.database import db
+import pytz
 import os
 from controller.config import Config
 from controller.models import *
@@ -68,7 +69,7 @@ def profile():
                            requests=user_requests, 
                            active_borrows=active_borrows, 
                            history=borrow_history,
-                           now=datetime.utcnow()) 
+                           now=get_ist()) 
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -115,7 +116,14 @@ def login():
         
         if user and check_password_hash(user.password, pwd):
             login_user(user)
+            
+            # --- ADD THIS: Record the visit in the database ---
+            new_log = VisitorLog(user_id=user.id)
+            db.session.add(new_log)
+            db.session.commit()
+            
             flash(f'Welcome back, {user.name}!', 'success')
+            # Consistent role naming: 'librarian'
             return redirect(url_for('admin_dashboard' if user.role == 'librarian' else 'user_dashboard'))
         
         flash('Invalid Account Number or Password', 'danger')
@@ -124,45 +132,57 @@ def login():
 @app.route('/admin_dashboard')
 @login_required
 def admin_dashboard():
-    # 1. Fetch search query
+    # 1. Authorization Check
+    if current_user.role != 'librarian':
+        flash("Unauthorized access!", "danger")
+        return redirect(url_for('user_dashboard'))
+
+    # 2. Fetch search query
     search_query = request.args.get('search_user', '')
     
-    # 2. Fetch Users (with search filter)
+    # 3. Fetch Users
     if search_query:
         users = User.query.filter(User.name.contains(search_query) | User.account_no.contains(search_query)).all()
     else:
         users = User.query.all()
     
-    # 3. Fetch Pending Requests
+    # 4. Fetch Inventory, Requests, and Active Transactions
+    all_books = Book.query.all()
     pending_requests = BookRequest.query.filter_by(status='Pending').all()
-    
-    # 4. Fetch Active Transactions
     transactions = Transaction.query.filter_by(return_date=None).all()
+
+    # 5. Visitor Monitoring (Recent logs)
+    recent_logs = VisitorLog.query.order_by(VisitorLog.timestamp.desc()).limit(5).all()
     
-    # --- START OF FINE CALCULATION ---
-    current_time = datetime.utcnow()
-    live_fines = 0
-    for txn in transactions:
-        if current_time > txn.due_date:
-            days_overdue = (current_time - txn.due_date).days
-            live_fines += (days_overdue * 5)  # ₹5 per day
-    # --- END OF FINE CALCULATION ---
+    # 6. Today's Visitor Count (Handled safely for 2026 standards)
+    # We strip the timezone info (.replace(tzinfo=None)) to match typical DB storage
+    now_ist = get_ist()
+    today_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0).replace(tzinfo=None)
+    visitor_count = VisitorLog.query.filter(VisitorLog.timestamp >= today_start).count()
     
-    # 5. Stats
+    # 7. Optimized Fine Calculation
+    # FIX: Use the property from the model instead of manual loop to reduce logic errors
+    live_fines = sum(txn.calculate_fine for txn in transactions)
+    
+    # 8. Stats
     stats = {
         'total_books': Book.query.count(),
         'total_students': User.query.filter_by(role='student').count(),
         'total_staff': User.query.filter_by(role='staff').count(),
-        'total_fines': live_fines # Now reflects the live calculation
+        'total_fines': live_fines,
+        'visitor_count': visitor_count
     }
 
+    # 9. Return Template
     return render_template('admin_dashboard.html', 
                            users=users, 
+                           books=all_books, 
                            pending_requests=pending_requests, 
                            transactions=transactions,
+                           recent_logs=recent_logs,
                            search_query=search_query,
                            stats=stats,
-                           now=current_time)
+                           now=get_ist().replace(tzinfo=None))
 
 @app.route('/delete_user/<int:user_id>', methods=['POST'])
 @login_required
@@ -196,29 +216,39 @@ def manage_request(req_id, action):
             req.status = 'Approved'
             req.book.copies -= 1
             
+            # --- FIXED TIME LOGIC ---
+            now_in_india = get_ist()
+            
             new_txn = Transaction(
                 user_id=req.user_id,
                 book_id=req.book_id,
-                issue_date=datetime.utcnow(),
-                due_date=datetime.utcnow() + timedelta(days=14)
+                issue_date=now_in_india, 
+                due_date=now_in_india + timedelta(days=14)
             )
+            # ------------------------
+            
             db.session.add(new_txn)
             
-            # --- NEW EMAIL LOGIC ---
             try:
                 msg = Message(subject="Book Request Approved!",
                               sender=app.config['MAIL_USERNAME'],
                               recipients=[req.user.email])
-                msg.body = f"Hello {req.user.name},\n\nYour request for '{req.book.title}' has been approved! You can now collect it from the library.\nDue Date: {new_txn.due_date.strftime('%d-%b-%Y')}."
+                msg.body = f"Hello {req.user.name},\n\nYour request for '{req.book.title}' has been approved!\nDue Date: {new_txn.due_date.strftime('%d-%b-%Y')}."
                 mail.send(msg)
             except Exception as e:
-                print(f"Email error: {e}") # Fails safely without breaking the app
-            # -----------------------
+                print(f"Email error: {e}")
                 
             flash(f"Approved! {req.book.title} issued to {req.user.name}.", "success")
+        else:
+            flash(f"Failed! No copies of '{req.book.title}' available.", "danger")
+
+    elif action == 'reject':
+        req.status = 'Rejected'
+        flash(f"Request for {req.book.title} has been rejected.", "warning")
         
     db.session.commit()
     return redirect(url_for('admin_dashboard'))
+
 
 @app.route('/join_waitlist/<int:book_id>', methods=['POST'])
 @login_required
@@ -255,12 +285,9 @@ def user_dashboard():
 
     my_books = Transaction.query.filter_by(user_id=current_user.id, return_date=None).all()
     
-    # Calculate total fine for display
-    total_my_fine = 0
-    now = datetime.utcnow()
-    for txn in my_books:
-        if now > txn.due_date:
-            total_my_fine += (now - txn.due_date).days * 5
+    # FIX: Use the property from the model to avoid the subtraction crash
+    total_my_fine = sum(txn.calculate_fine for txn in my_books)
+    now = get_ist()
 
     # Pass 'books' instead of 'inventory' to match your HTML template
     return render_template('user_dashboard.html', 
@@ -268,7 +295,38 @@ def user_dashboard():
                            my_books=my_books, 
                            total_fine=total_my_fine, 
                            search_query=search_query,
-                           now=now)
+                           now=get_ist().replace(tzinfo=None))
+
+
+@app.route('/visitor-history')
+@login_required
+def visitor_history():
+    if current_user.role != 'librarian':
+        flash("Unauthorized access!", "danger")
+        return redirect(url_for('user_dashboard'))
+    
+    # This fetches all records and passes them to your template
+    all_logs = VisitorLog.query.order_by(VisitorLog.timestamp.desc()).all()
+    return render_template('visitor_history.html', all_logs=all_logs)
+
+@app.route('/clear-visitor-history', methods=['POST'])
+@login_required
+def clear_visitor_history():
+    if current_user.role != 'librarian':
+        flash("Unauthorized access!", "danger")
+        return redirect(url_for('index'))
+    
+    try:
+        # Deletes all rows in the VisitorLog table
+        VisitorLog.query.delete()
+        db.session.commit()
+        flash("Library history has been successfully cleared for the new session.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash("Error: Could not clear history.", "danger")
+        print(f"Database Error: {e}")
+        
+    return redirect(url_for('visitor_history'))
 
 @app.route('/browse_books')
 def browse_books():
@@ -373,17 +431,35 @@ def issue_book():
         flash(f"Error: '{book.title}' is out of stock!", "warning")
     else:
         try:
+            # NEW FEATURE: Capture the exact Indian time for the record
+            india_now = get_ist()
+            
+            # Preplanning: Check if the student already has an active copy of THIS book
+            active_txn = Transaction.query.filter_by(user_id=user.id, book_id=book.id, return_date=None).first()
+            if active_txn:
+                flash(f"Error: {user.name} already has an unreturned copy of this book.", "warning")
+                return redirect(url_for('admin_dashboard'))
+
             # 2. Process Issue
             book.copies -= 1
+            
+            # Calculate due date: 15 days from now in IST
+            future_due_date = india_now + timedelta(days=14)
+            
             new_txn = Transaction(
                 user_id=user.id,
                 book_id=book.id,
-                issue_date=datetime.utcnow(),
-                due_date=datetime.utcnow() + timedelta(days=14)
+                issue_date=india_now,
+                due_date=future_due_date
             )
+            
             db.session.add(new_txn)
             db.session.commit()
-            flash(f"Success! {book.title} issued to {user.name}.", "success")
+            
+            # Format time for the flash message to look professional
+            formatted_time = india_now.strftime('%I:%M %p')
+            flash(f"Success! {book.title} issued to {user.name} at {formatted_time}.", "success")
+            
         except Exception as e:
             db.session.rollback()
             flash("An error occurred while issuing the book.", "danger")
@@ -413,13 +489,13 @@ def send_reminder(transaction_id):
         
     # 4. The Actual Email Logic
     try:
-        fine_amount = txn.calculate_fine
+        fine = txn.calculate_fine
         msg = Message(
             subject=f"Manual Reminder: '{txn.book.title}' is Overdue",
             sender=app.config['MAIL_USERNAME'],
             recipients=[txn.user.email]
         )
-        msg.body = f"Hello {txn.user.name},\n\nThis is a direct reminder from the librarian. The book '{txn.book.title}' was due on {txn.due_date.strftime('%d-%m-%Y')}.\nCurrent Fine: ₹{fine_amount}.\n\nPlease return it to the library immediately."
+        msg.body = f"Hello {txn.user.name},\n\nThis is a direct reminder from the librarian. The book '{txn.book.title}' was due on {txn.due_date.strftime('%d-%m-%Y')}.\nCurrent Fine: ₹{fine}.\n\nPlease return it to the library immediately."
         
         mail.send(msg)
         
@@ -442,7 +518,7 @@ def run_daily_notifications():
         flash("Unauthorized!", "danger")
         return redirect(url_for('index'))
 
-    now = datetime.utcnow()
+    now = get_ist().replace(tzinfo=None)
     # Find all books that are overdue and not yet returned
     overdue_txns = Transaction.query.filter(
         Transaction.return_date == None,
@@ -457,14 +533,14 @@ def run_daily_notifications():
     for txn in overdue_txns:
         try:
             # Using your model property for the fine
-            fine_amount = txn.calculate_fine 
+            fine = txn.calculate_fine 
             
             msg = Message(
                 subject=f"Library Overdue Reminder: {txn.book.title}",
                 sender=app.config['MAIL_USERNAME'],
                 recipients=[txn.user.email]
             )
-            msg.body = f"Hello {txn.user.name},\n\nThis is a reminder that '{txn.book.title}' is overdue.\nDue Date: {txn.due_date.strftime('%d-%m-%Y')}\nCurrent Fine: ₹{fine_amount}.\n\nPlease return it to the library."
+            msg.body = f"Hello {txn.user.name},\n\nThis is a reminder that '{txn.book.title}' is overdue.\nDue Date: {txn.due_date.strftime('%d-%m-%Y')}\nCurrent Fine: ₹{fine}.\n\nPlease return it to the library."
             
             mail.send(msg)
             
@@ -490,7 +566,7 @@ def return_book(transaction_id):
         return redirect(url_for('admin_dashboard'))
 
     # 1. Update return date
-    txn.return_date = datetime.utcnow()
+    txn.return_date = get_ist()
     
     # 2. Calculate Fine (₹5 per day)
     fine = 0

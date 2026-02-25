@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark"><i class="fas fa-history me-2 text-warning"></i>Library Visitor History</h2>
+            <p class="text-muted">Complete log of all member logins and access times (IST).</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if all_logs %}
+            <form action="{{ url_for('clear_visitor_history') }}" method="POST" 
+                  onsubmit="return confirm('Wait! This will permanently delete ALL visitor records. This action cannot be undone. Do you want to proceed?');">
+                <button type="submit" class="btn btn-danger rounded-pill shadow-sm">
+                    <i class="fas fa-trash-alt me-2"></i>Clear All Logs
+                </button>
+            </form>
+            {% endif %}
+
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary rounded-pill shadow-sm">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4">Visitor Name</th>
+                            <th>Account Number</th>
+                            <th>Role</th>
+                            <th>Login Date</th>
+                            <th>Login Time</th>
+                            <th class="pe-4 text-end">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in all_logs %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm me-3 bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; font-weight: bold;">
+                                        {{ log.user.name[0] | upper }}
+                                    </div>
+                                    <span class="fw-bold">{{ log.user.name }}</span>
+                                </div>
+                            </td>
+                            <td><code class="text-primary fw-bold">{{ log.user.account_no }}</code></td>
+                            <td>
+                                <span class="badge {% if log.user.role == 'librarian' %}bg-danger{% else %}bg-info{% endif %} px-3">
+                                    {{ log.user.role | replace('_', ' ') | title }}
+                                </span>
+                            </td>
+                            <td>{{ log.timestamp.strftime('%d %b, %Y') }}</td>
+                            <td>{{ log.timestamp.strftime('%I:%M %p') }}</td>
+                            <td class="pe-4 text-end">
+                                <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle small">
+                                    <i class="fas fa-check-circle me-1"></i> Logged
+                                </span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="fas fa-folder-open fa-3x mb-3 opacity-25"></i>
+                                <p class="lead">No visitor records found in the database.</p>
+                                <small>Records appear here automatically when members log in.</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .table-hover tbody tr:hover {
+        background-color: rgba(255, 193, 7, 0.05);
+        transition: background-color 0.2s ease;
+    }
+    .card {
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
